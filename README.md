@@ -45,6 +45,12 @@ outgoing network.
 
 ## Install
 
+**[Download CurlHit 1.0](https://github.com/gulsher7/macos-curl-hit/releases/latest)** — universal (Apple silicon + Intel), 1.7 MB.
+
+The release build is ad-hoc signed rather than notarised, so the first launch needs
+**right-click → Open → Open**, once. Building from source avoids that entirely and takes
+one command:
+
 ```bash
 git clone https://github.com/gulsher7/macos-curl-hit.git
 cd macos-curl-hit
@@ -58,6 +64,9 @@ project, no package fetch, nothing to install. To keep it around:
 ```bash
 cp -R build/CurlHit.app /Applications/
 ```
+
+`build.sh` targets your own architecture. `./release.sh` builds the universal
+(arm64 + x86_64) bundle and the distributable zip instead.
 
 Requires macOS 13 Ventura or later.
 
