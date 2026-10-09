@@ -11,6 +11,7 @@ plain repeat-and-inspect it can climb through concurrency levels and tell you wh
 - **Local only** — no database, no accounts, no telemetry. The only thing written to disk is your last-used inputs.
 - **Sandboxed** — App Sandbox on, with exactly one entitlement: outgoing network.
 - **Reads real curl** — headers, methods, bodies, auth, cookies, multi-line `\` pastes.
+- **Advanced mode** — takes the request apart and randomises chosen headers, query parameters or body fields on every hit, keeping each value's shape.
 
 ---
 
@@ -137,6 +138,50 @@ in a results list but call for completely different fixes:
 If you are probing a **per-minute** quota rather than a per-concurrency one, give the
 run an interval of a few seconds so throttling from one rung doesn't bleed into the next.
 
+### Advanced mode — a different value on every request
+
+Switch the toggle in the title bar from **Simple** to **Advanced** and the app pulls your
+request apart: every header, every query parameter and every field in the body, including
+nested JSON, becomes a row you can switch on.
+
+```
+ ☑  header   X-Device-Id     7F3A1B20-44C1-4E8A-…   Same shape ▾   5P2X6D66-88J6-3R5V-…
+ ☐  header   Content-Type    application/json
+ ☑  query    trace           abc123def456           Same shape ▾   76b34b9c5c6f
+ ☑  body     user.id         48217                  Digits     ▾   35286
+ ☑  body     user.email      someone@example.com    Same shape ▾   kzjtqfr@qykirmn.lcv
+ ☑  body     token           ca8b7d1d1ae846cbbf99…  Hex        ▾   f6bb494ef9cef0f0…
+```
+
+Each switched-on field gets a fresh value for **every single request**, with a live
+preview of what will be sent. This is what you want when the endpoint rejects duplicates,
+dedupes on a device id, caches on a query parameter, or when you need a thousand distinct
+signups rather than the same one a thousand times.
+
+**Strategies**
+
+| Strategy | What it generates |
+| --- | --- |
+| **Same shape** | Same length, same character classes. Digits stay digits, letters stay letters, and separators like `-`, `.` and `@` are left in place |
+| **UUID** | A fresh UUID per request, matching the original's case and dash style |
+| **Digits** | Random digits, same length |
+| **Hex** | Random hex, same length and case |
+| **Sequence** | The hit number, zero-padded to the original's length — useful for idempotency keys |
+| **Timestamp** | Milliseconds since the epoch at the moment of sending |
+
+**Same shape** is the default, and the reason is worth knowing: if a server validates
+"32 hex characters" or "numeric id", a value of random mixed characters gets rejected by
+the validator and you end up testing the validator instead of the endpoint. Preserving
+the shape keeps the request realistic. A 32-character hex token stays 32 hex characters;
+`+91-98765-43210` keeps its dashes; `25.3.2` keeps its dots.
+
+Types are preserved too — a JSON number stays a JSON number rather than becoming a
+quoted string, so strict backends don't reject the body outright.
+
+Each result records what was randomised for it, shown above the response body and
+included in the CSV export, so a failure can always be traced back to the exact values
+that caused it.
+
 ### The numbers
 
 Across the top of the results:
@@ -181,12 +226,13 @@ size.
 Puts the entire run on the clipboard, ready for a spreadsheet:
 
 ```
-hit,parallel,status,ms,bytes,started_at,error
-1,4,200,163.2,8275,2026-10-09T09:31:02Z,""
+hit,parallel,status,ms,bytes,started_at,error,randomised
+1,4,200,163.2,8275,2026-10-09T09:31:02Z,"","trace=76b34b9c5c6f  user.id=35286"
 ```
 
-The `parallel` column records the level each hit ran at, so a ramp run can be grouped
-and charted afterwards.
+The `parallel` column records the level each hit ran at, so a ramp run can be grouped and
+charted afterwards. The `randomised` column records the exact values Advanced mode
+generated for that hit.
 
 ### Your inputs are remembered
 
@@ -241,6 +287,7 @@ Sources/CurlHit/
   Runner.swift         Stage/wave run loop, stats, verdict, clipboard export
   HTTPEngine.swift     URLSession wrapper with curl-compatible redirect and TLS behaviour
   CurlParser.swift     Shell tokeniser + curl flags → URLRequest
+  Mutation.swift       Field extraction and the per-request randomisation strategies
 Tools/make-icon.swift  Draws the app icon; no binary artwork in the repo
 ```
 

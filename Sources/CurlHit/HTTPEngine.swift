@@ -13,6 +13,8 @@ struct HitResult: Identifiable, Sendable {
     let body: String
     let responseHeaders: [(String, String)]
     let errorText: String?
+    /// What was randomised for this particular request, if anything.
+    var mutations: String? = nil
 
     var ok: Bool { statusCode >= 200 && statusCode < 400 }
     var isRateLimited: Bool { statusCode == 429 }

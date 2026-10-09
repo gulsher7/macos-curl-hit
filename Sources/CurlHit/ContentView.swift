@@ -21,7 +21,8 @@ struct ContentView: View {
             Divider()
             statusBar
         }
-        .frame(minWidth: 880, minHeight: 640)
+        .frame(minWidth: 940, minHeight: 680)
+        .onAppear { if runner.isAdvanced { runner.analyse() } }
     }
 
     // MARK: Title
@@ -37,6 +38,18 @@ struct ContentView: View {
                     .font(.system(size: 10)).foregroundStyle(.secondary)
             }
             Spacer()
+
+            Picker("", selection: $runner.isAdvanced) {
+                Text("Simple").tag(false)
+                Text("Advanced").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 148)
+            .controlSize(.small)
+            .disabled(runner.isRunning)
+            .help("Advanced mode takes the request apart so individual fields can be randomised per hit")
+
             if runner.isRunning {
                 ProgressView().controlSize(.small)
                 Text("\(runner.completed)/\(runner.plannedTotal)")
@@ -77,6 +90,13 @@ struct ContentView: View {
                 .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 7))
                 .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.primary.opacity(0.13)))
                 .disabled(runner.isRunning)
+                .onChange(of: runner.curlText) { _ in
+                    if runner.isAdvanced { runner.analyse() }
+                }
+
+            if runner.isAdvanced {
+                fieldsPanel
+            }
 
             HStack(alignment: .bottom, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -225,6 +245,120 @@ struct ContentView: View {
             }
         }
         .padding(14)
+    }
+
+    // MARK: Advanced — per-field randomisation
+
+    private var fieldsPanel: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Label("Randomise per request", systemImage: "dice")
+                    .font(.system(size: 11, weight: .semibold))
+                if runner.enabledSlotCount > 0 {
+                    Text("\(runner.enabledSlotCount) on")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(Color.accentColor, in: Capsule())
+                }
+                Spacer()
+                Button("Re-read") { runner.analyse() }
+                    .buttonStyle(.link).font(.system(size: 11))
+                Button("All") { runner.setAllSlots(enabled: true) }
+                    .buttonStyle(.link).font(.system(size: 11))
+                Button("None") { runner.setAllSlots(enabled: false) }
+                    .buttonStyle(.link).font(.system(size: 11))
+            }
+            .disabled(runner.isRunning)
+
+            if runner.slots.isEmpty {
+                Text(runner.analysisNote.isEmpty
+                     ? "Paste a request above to see the fields it can randomise."
+                     : runner.analysisNote)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                Text(runner.analysisNote)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach($runner.slots) { $slot in
+                            fieldRow($slot)
+                            Divider().opacity(0.35)
+                        }
+                    }
+                }
+                .frame(height: min(CGFloat(runner.slots.count) * 29 + 4, 190))
+                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 7))
+                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.primary.opacity(0.12)))
+            }
+        }
+    }
+
+    private func fieldRow(_ slot: Binding<FieldSlot>) -> some View {
+        HStack(spacing: 7) {
+            Toggle("", isOn: slot.enabled)
+                .labelsHidden()
+                .controlSize(.small)
+                .disabled(runner.isRunning)
+
+            Text(slot.wrappedValue.source.label)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 4).padding(.vertical, 1)
+                .background(sourceColor(slot.wrappedValue.source), in: RoundedRectangle(cornerRadius: 3))
+                .frame(width: 48, alignment: .leading)
+
+            Text(slot.wrappedValue.path)
+                .font(.system(size: 11, design: .monospaced))
+                .lineLimit(1).truncationMode(.middle)
+                .frame(width: 148, alignment: .leading)
+                .help(slot.wrappedValue.path)
+
+            Text(slot.wrappedValue.original)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(1).truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(slot.wrappedValue.original)
+
+            if slot.wrappedValue.enabled {
+                Picker("", selection: slot.strategy) {
+                    ForEach(MutationStrategy.allCases) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 110)
+                .controlSize(.small)
+                .disabled(runner.isRunning)
+                .help(slot.wrappedValue.strategy.explanation)
+
+                Text(runner.isRunning ? "sending…" : runner.preview(slot.wrappedValue))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.green)
+                    .lineLimit(1).truncationMode(.middle)
+                    .frame(width: 130, alignment: .leading)
+                    .help("A fresh sample of what will be sent")
+            } else {
+                Color.clear.frame(width: 247, height: 1)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+    }
+
+    private func sourceColor(_ source: FieldSource) -> Color {
+        switch source {
+        case .header: return .blue
+        case .query:  return .teal
+        case .json:   return .purple
+        case .form:   return .indigo
+        }
     }
 
     private func fieldLabel(_ text: String) -> some View {
@@ -440,6 +574,7 @@ struct ContentView: View {
         }
         var out: [String] = []
         if let err = hit.errorText { out.append("⚠︎ \(err)") }
+        if let mutations = hit.mutations { out.append("randomised → \(mutations)") }
         if showHeaders && !hit.responseHeaders.isEmpty {
             out.append(hit.responseHeaders.map { "\($0.0): \($0.1)" }.joined(separator: "\n"))
         }

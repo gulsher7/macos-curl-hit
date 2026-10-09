@@ -19,6 +19,12 @@ final class Runner: ObservableObject {
     @Published var rampStepsText: String { didSet { save("rampStepsText", rampStepsText) } }
     @Published var rampPerStepText: String { didSet { save("rampPerStepText", rampPerStepText) } }
 
+    /// Advanced mode: take the request apart and randomise chosen fields per hit.
+    @Published var isAdvanced: Bool { didSet { save("isAdvanced", isAdvanced); if isAdvanced { analyse() } } }
+    @Published var slots: [FieldSlot] = []
+    @Published private(set) var analysisNote: String = ""
+    private var template: RequestTemplate?
+
     // MARK: Output state
 
     @Published private(set) var results: [HitResult] = []
@@ -49,6 +55,7 @@ final class Runner: ObservableObject {
         isRamp = d.bool(forKey: "isRamp")
         rampStepsText = d.string(forKey: "rampStepsText") ?? "1, 2, 5, 10, 20"
         rampPerStepText = d.string(forKey: "rampPerStepText") ?? "20"
+        isAdvanced = d.bool(forKey: "isAdvanced")
     }
 
     private func save(_ key: String, _ value: Any) { defaults.set(value, forKey: key) }
@@ -204,6 +211,51 @@ final class Runner: ObservableObject {
         return max(0, unitIsSeconds ? raw : raw / 1000)
     }
 
+    // MARK: Advanced mode
+
+    var enabledSlotCount: Int { slots.filter(\.enabled).count }
+
+    /// Parses the current curl and lists every header, query parameter and body
+    /// field it can offer to randomise. Choices already made are preserved across
+    /// re-analysis, keyed by field id.
+    func analyse() {
+        let previous = Dictionary(uniqueKeysWithValues: slots.map { ($0.id, $0) })
+        do {
+            let parsed = try CurlParser.parse(curlText)
+            let built = RequestTemplate.analyse(parsed)
+            template = built
+            slots = built.slots.map { slot in
+                guard let old = previous[slot.id] else { return slot }
+                var merged = slot                 // keep the new original value
+                merged.enabled = old.enabled
+                merged.strategy = old.strategy
+                return merged
+            }
+            if slots.isEmpty {
+                analysisNote = "Nothing to randomise — this request has no headers, query parameters or body fields."
+            } else {
+                let byKind = Dictionary(grouping: slots, by: \.source)
+                    .sorted { $0.key.label < $1.key.label }
+                    .map { "\($0.value.count) \($0.key.label)" }
+                    .joined(separator: ", ")
+                analysisNote = "Found \(byKind)."
+            }
+        } catch {
+            template = nil
+            slots = []
+            analysisNote = error.localizedDescription
+        }
+    }
+
+    func setAllSlots(enabled: Bool) {
+        for i in slots.indices { slots[i].enabled = enabled }
+    }
+
+    /// A fresh sample of what this field would send, for the preview column.
+    func preview(_ slot: FieldSlot) -> String {
+        slot.value(forHit: max(1, completed + 1))
+    }
+
     // MARK: Actions
 
     func start() {
@@ -240,6 +292,13 @@ final class Runner: ObservableObject {
         let request = parsed.urlRequest(defaultTimeout: timeout)
         let peakParallel = plan.map(\.parallel).max() ?? 1
 
+        // Advanced mode rebuilds the request per hit so randomised fields differ
+        // every time. Plain mode reuses the one request, as before.
+        let liveSlots = slots.filter(\.enabled)
+        let mutating = isAdvanced && !liveSlots.isEmpty
+        if mutating && template == nil { analyse() }
+        let liveTemplate = mutating ? template : nil
+
         results.removeAll()
         stageWall.removeAll()
         selected = nil
@@ -254,8 +313,9 @@ final class Runner: ObservableObject {
         } else {
             shape = peakParallel > 1 ? " · \(peakParallel) at a time" : ""
         }
+        let randomised = mutating ? " · randomising \(liveSlots.count) field\(liveSlots.count == 1 ? "" : "s")" : ""
         status = parsed.warnings.isEmpty
-            ? "\(parsed.method) \(parsed.url.absoluteString)\(shape)"
+            ? "\(parsed.method) \(parsed.url.absoluteString)\(shape)\(randomised)"
             : parsed.warnings.joined(separator: " ")
         isRunning = true
 
@@ -281,7 +341,17 @@ final class Runner: ObservableObject {
 
                     await withTaskGroup(of: HitResult.self) { group in
                         for i in indices {
-                            group.addTask { await engine.send(request, index: i, stage: stage.parallel) }
+                            if let liveTemplate {
+                                let (built, note) = liveTemplate.request(forHit: i, slots: liveSlots,
+                                                                        defaultTimeout: timeout)
+                                group.addTask {
+                                    var hit = await engine.send(built, index: i, stage: stage.parallel)
+                                    hit.mutations = note
+                                    return hit
+                                }
+                            } else {
+                                group.addTask { await engine.send(request, index: i, stage: stage.parallel) }
+                            }
                         }
                         for await hit in group {
                             guard let self else { continue }
@@ -369,11 +439,12 @@ final class Runner: ObservableObject {
     /// CSV of the run — plain text to the clipboard, nothing written to disk.
     func copyRunAsCSV() {
         guard !results.isEmpty else { return }
-        var lines = ["hit,parallel,status,ms,bytes,started_at,error"]
+        var lines = ["hit,parallel,status,ms,bytes,started_at,error,randomised"]
         let fmt = ISO8601DateFormatter()
         for hit in results {
             let err = (hit.errorText ?? "").replacingOccurrences(of: "\"", with: "'")
-            lines.append("\(hit.index),\(hit.stage),\(hit.statusLabel),\(String(format: "%.1f", hit.milliseconds)),\(hit.byteCount),\(fmt.string(from: hit.startedAt)),\"\(err)\"")
+            let mut = (hit.mutations ?? "").replacingOccurrences(of: "\"", with: "'")
+            lines.append("\(hit.index),\(hit.stage),\(hit.statusLabel),\(String(format: "%.1f", hit.milliseconds)),\(hit.byteCount),\(fmt.string(from: hit.startedAt)),\"\(err)\",\"\(mut)\"")
         }
         copy(lines.joined(separator: "\n"), note: "\(results.count) rows copied as CSV.")
     }
