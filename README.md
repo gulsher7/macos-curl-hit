@@ -6,6 +6,8 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/gulsher7/macos-curl-hit/releases"><img src="https://img.shields.io/github/downloads/gulsher7/macos-curl-hit/total?color=2EA043&label=downloads" alt="Total downloads"></a>
+  <a href="https://github.com/gulsher7/macos-curl-hit/releases/latest"><img src="https://img.shields.io/github/v/release/gulsher7/macos-curl-hit?color=0969DA&label=release" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/platform-macOS%2013%2B-111111" alt="macOS 13+">
   <img src="https://img.shields.io/badge/built%20with-Swift%20%C2%B7%20SwiftUI-F05138" alt="Swift and SwiftUI">
   <img src="https://img.shields.io/badge/download-1.8%20MB-2EA043" alt="1.8 MB download">
