@@ -369,11 +369,11 @@ final class Runner: ObservableObject {
     /// CSV of the run — plain text to the clipboard, nothing written to disk.
     func copyRunAsCSV() {
         guard !results.isEmpty else { return }
-        var lines = ["hit,status,ms,bytes,started_at,error"]
+        var lines = ["hit,parallel,status,ms,bytes,started_at,error"]
         let fmt = ISO8601DateFormatter()
         for hit in results {
             let err = (hit.errorText ?? "").replacingOccurrences(of: "\"", with: "'")
-            lines.append("\(hit.index),\(hit.statusLabel),\(String(format: "%.1f", hit.milliseconds)),\(hit.byteCount),\(fmt.string(from: hit.startedAt)),\"\(err)\"")
+            lines.append("\(hit.index),\(hit.stage),\(hit.statusLabel),\(String(format: "%.1f", hit.milliseconds)),\(hit.byteCount),\(fmt.string(from: hit.startedAt)),\"\(err)\"")
         }
         copy(lines.joined(separator: "\n"), note: "\(results.count) rows copied as CSV.")
     }
