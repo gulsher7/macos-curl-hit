@@ -47,9 +47,8 @@ outgoing network.
 
 **[Download CurlHit 1.0](https://github.com/gulsher7/macos-curl-hit/releases/latest)** — universal (Apple silicon + Intel), 1.7 MB.
 
-The release build is ad-hoc signed rather than notarised, so the first launch needs
-**right-click → Open → Open**, once. Building from source avoids that entirely and takes
-one command:
+Signed with a Developer ID and notarised by Apple, so it opens on a normal double-click.
+Or build it from source, which needs only the Swift compiler:
 
 ```bash
 git clone https://github.com/gulsher7/macos-curl-hit.git
@@ -65,8 +64,11 @@ project, no package fetch, nothing to install. To keep it around:
 cp -R build/CurlHit.app /Applications/
 ```
 
-`build.sh` targets your own architecture. `./release.sh` builds the universal
-(arm64 + x86_64) bundle and the distributable zip instead.
+`build.sh` targets your own architecture and signs ad-hoc, which is right for local use.
+`./release.sh` builds the universal (arm64 + x86_64) bundle and, when a Developer ID
+certificate is present, signs it, sends it to Apple for notarisation and staples the
+ticket. Signing identity comes from `Local.xcconfig`, which is gitignored — see
+[`docs/APP_STORE.md`](docs/APP_STORE.md).
 
 Requires macOS 13 Ventura or later.
 
