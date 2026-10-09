@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var runner = Runner()
     @State private var showHeaders = false
+    @State private var showStages = true
 
     private static let clock: DateFormatter = {
         let f = DateFormatter()
@@ -78,8 +79,32 @@ struct ContentView: View {
                 .disabled(runner.isRunning)
 
             HStack(alignment: .bottom, spacing: 12) {
-                numberField("Count", text: $runner.countText)
-                numberField("Parallel", text: $runner.parallelText)
+                VStack(alignment: .leading, spacing: 3) {
+                    fieldLabel("Mode")
+                    Picker("", selection: $runner.isRamp) {
+                        Text("Fixed").tag(false)
+                        Text("Ramp").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 112)
+                    .disabled(runner.isRunning)
+                }
+
+                if runner.isRamp {
+                    VStack(alignment: .leading, spacing: 3) {
+                        fieldLabel("Parallel levels")
+                        TextField("1, 2, 5, 10, 20", text: $runner.rampStepsText)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 12, design: .monospaced))
+                            .frame(width: 136)
+                            .disabled(runner.isRunning)
+                    }
+                    numberField("Per level", text: $runner.rampPerStepText)
+                } else {
+                    numberField("Count", text: $runner.countText)
+                    numberField("Parallel", text: $runner.parallelText)
+                }
 
                 VStack(alignment: .leading, spacing: 3) {
                     fieldLabel("Interval")
@@ -148,6 +173,23 @@ struct ContentView: View {
             if runner.plannedTotal > 0 {
                 ProgressView(value: Double(runner.completed), total: Double(runner.plannedTotal))
                     .progressViewStyle(.linear)
+            }
+
+            if runner.isRamp, !runner.isRunning, let verdict = runner.rampVerdict {
+                HStack(spacing: 7) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tint)
+                    Text(verdict)
+                        .font(.system(size: 12, weight: .medium))
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.accentColor.opacity(0.30)))
             }
 
             if !runner.statusBreakdown.isEmpty {
@@ -228,9 +270,28 @@ struct ContentView: View {
     private var resultsPane: some View {
         HSplitView {
             VStack(alignment: .leading, spacing: 0) {
-                sectionHeader("Hits") { EmptyView() }
+                sectionHeader(showStages ? "Stages" : "Hits") {
+                    if runner.stages.count > 1 {
+                        Picker("", selection: $showStages) {
+                            Text("Hits").tag(false)
+                            Text("Stages").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(width: 112)
+                        .controlSize(.small)
+                    }
+                }
+
                 if runner.results.isEmpty {
                     emptyState("No hits yet", "Press Start (⌘↩)")
+                } else if showStages && runner.stages.count > 1 {
+                    List {
+                        ForEach(runner.stages) { stage in
+                            stageRow(stage)
+                        }
+                    }
+                    .listStyle(.inset(alternatesRowBackgrounds: true))
                 } else {
                     List(selection: $runner.selected) {
                         ForEach(runner.results) { hit in
@@ -240,7 +301,7 @@ struct ContentView: View {
                     .listStyle(.inset(alternatesRowBackgrounds: true))
                 }
             }
-            .frame(minWidth: 320, idealWidth: 370)
+            .frame(minWidth: 320, idealWidth: 400)
 
             VStack(alignment: .leading, spacing: 0) {
                 sectionHeader("Response") {
@@ -293,6 +354,49 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 1)
+    }
+
+    private func stageRow(_ stage: Runner.StageSummary) -> some View {
+        HStack(spacing: 8) {
+            Text("x\(stage.parallel)")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .frame(width: 34, alignment: .leading)
+                .help("Requests in flight at once")
+
+            Text("\(stage.ok)/\(stage.sent)")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(stage.ok == stage.sent ? .primary : .secondary)
+                .frame(width: 52, alignment: .leading)
+
+            if stage.rateLimited > 0 {
+                tag("429 x\(stage.rateLimited)", .purple)
+            }
+            if stage.serverErrors > 0 {
+                tag("5xx x\(stage.serverErrors)", .red)
+            }
+            if stage.transportFailures > 0 {
+                tag("err x\(stage.transportFailures)", .red)
+            }
+
+            Spacer(minLength: 4)
+
+            Text(String(format: "p95 %.0fms", stage.p95Ms))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.secondary)
+            Text(String(format: "%.1f r/s", stage.reqPerSec))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .frame(width: 62, alignment: .trailing)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func tag(_ text: String, _ color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(color, in: Capsule())
     }
 
     private func color(for hit: HitResult) -> Color { codeColor(hit.statusCode) }

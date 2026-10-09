@@ -30,12 +30,40 @@ cp -R build/CurlHit.app /Applications/
 | --- | --- |
 | Request | A full curl command, or a bare URL (`https://` is assumed if you omit the scheme) |
 | Count | How many times to send it, 1–100000 |
-| Parallel | How many go out **at once**, 1–50. `1` is the old one-at-a-time behaviour |
+| Mode | **Fixed** sends one batch at a chosen parallelism; **Ramp** steps through levels to find the limit |
+| Parallel | Fixed mode: how many go out **at once**, 1–50. `1` is one-at-a-time |
+| Parallel levels | Ramp mode: the ladder to climb, e.g. `1, 2, 5, 10, 20` (max 12 rungs, each capped at 50) |
+| Per level | Ramp mode: how many requests to send at each rung |
 | Interval | Delay *between* hits, in ms or seconds. `0` fires back-to-back |
 | Timeout (s) | Per-request timeout; `-m` in the pasted curl wins over this |
 | Stop on failure | Halt the run on the first non-2xx/3xx response |
 
 Shortcuts: `⌘↩` start, `⌘.` stop.
+
+### Ramp mode — finding the limit
+
+Guessing a parallelism number and re-running by hand is slow. Ramp mode climbs a ladder
+instead: it runs `Per level` requests at each level in `Parallel levels`, then tells you
+in one line what it found.
+
+```
+stage  sent   ok   429   p95      req/s
+x1     16     16   0     166ms    6.4
+x4     16     16   0     158ms    25.4
+x8     16     16   0     160ms    50.1
+x16    16     8    8     165ms    96.9
+
+Rate limited at 16 parallel — 8/16 got 429.
+```
+
+The **Stages** tab shows that table; the verdict appears above it. It distinguishes the
+cases that matter:
+
+- **429s appear** → a real quota, and it names the level where it starts
+- **5xx or dropped connections appear** → the server is breaking rather than throttling
+- **No errors but p95 bends past 2x baseline** → queuing, not a quota: you found the
+  concurrency where it starts falling behind, not a configured limit
+- **Nothing bends** → no limit up to the top rung, with the peak throughput reached
 
 ### Load and rate-limit testing
 

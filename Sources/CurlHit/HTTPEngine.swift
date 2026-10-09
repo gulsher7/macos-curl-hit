@@ -4,6 +4,8 @@ import Foundation
 struct HitResult: Identifiable, Sendable {
     let id = UUID()
     let index: Int
+    /// Which parallelism level this hit ran at. In a ramp this is the stage key.
+    let stage: Int
     let statusCode: Int          // 0 means the request never got a response
     let seconds: Double
     let startedAt: Date
@@ -13,6 +15,9 @@ struct HitResult: Identifiable, Sendable {
     let errorText: String?
 
     var ok: Bool { statusCode >= 200 && statusCode < 400 }
+    var isRateLimited: Bool { statusCode == 429 }
+    var isServerError: Bool { statusCode >= 500 }
+    var isTransportFailure: Bool { statusCode == 0 }
     var statusLabel: String { statusCode == 0 ? "ERR" : String(statusCode) }
     var milliseconds: Double { seconds * 1000 }
 }
@@ -74,7 +79,7 @@ final class HTTPEngine: @unchecked Sendable {
 
     func invalidate() { session.finishTasksAndInvalidate() }
 
-    func send(_ request: URLRequest, index: Int) async -> HitResult {
+    func send(_ request: URLRequest, index: Int, stage: Int) async -> HitResult {
         let startedAt = Date()
         let clock = DispatchTime.now()
 
@@ -94,6 +99,7 @@ final class HTTPEngine: @unchecked Sendable {
                 .map { ($0.key, $0.value) }
 
             return HitResult(index: index,
+                             stage: stage,
                              statusCode: http?.statusCode ?? 0,
                              seconds: elapsed(),
                              startedAt: startedAt,
@@ -103,6 +109,7 @@ final class HTTPEngine: @unchecked Sendable {
                              errorText: nil)
         } catch {
             return HitResult(index: index,
+                             stage: stage,
                              statusCode: 0,
                              seconds: elapsed(),
                              startedAt: startedAt,
