@@ -1,0 +1,8 @@
+// Signing configuration.
+//
+// The team ID lives in Local.xcconfig, which is gitignored, so it never reaches
+// the repository. The "?" makes the include optional: without that file the
+// project still builds, which is what CI and a fresh clone do.
+//
+// To build a signed or archivable app:  cp Local.xcconfig.example Local.xcconfig
+#include? "Local.xcconfig"

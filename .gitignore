@@ -15,3 +15,7 @@ xcuserdata/
 
 # Local logs / scratch
 *.log
+
+# Local signing identity — never commit
+Local.xcconfig
+*.local.plist

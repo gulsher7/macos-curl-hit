@@ -1,0 +1,8 @@
+// Copy to Local.xcconfig and fill in your Apple Developer team ID.
+// Local.xcconfig is gitignored, so your team ID stays out of the repo.
+//
+//   cp Local.xcconfig.example Local.xcconfig
+//
+// Leave it absent entirely if you only ever build with ./build.sh,
+// which signs ad-hoc and needs no team.
+DEVELOPMENT_TEAM = YOUR_TEAM_ID

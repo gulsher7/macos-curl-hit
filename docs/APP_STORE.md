@@ -11,6 +11,24 @@ Everything in the repo is already shaped for submission. What's left is the part
 - `MARKETING_VERSION` 1.0 / `CURRENT_PROJECT_VERSION` 1, and a shared `CurlHit` scheme so `xcodebuild archive` works from the command line.
 - `xcodebuild` already runs Apple's `-validate-for-store` check on every Release build, and it passes.
 
+## 0. Your signing identity stays out of the repo
+
+The Xcode project reads `DEVELOPMENT_TEAM` from `Local.xcconfig`, which is gitignored.
+Create it once:
+
+```bash
+cp Local.xcconfig.example Local.xcconfig   # then put your team ID in it
+```
+
+`Signing.xcconfig` includes it with `#include?`, so the project still builds when the
+file is absent — which is what CI and a fresh clone do. `docs/ExportOptions.plist` ships
+with a `YOUR_TEAM_ID` placeholder for the same reason; copy it to
+`docs/ExportOptions.local.plist` (also gitignored) with your real value before archiving.
+
+Note that a team ID is not a secret — it is embedded in every signed binary and readable
+with `codesign -dv` on any app you ship. Keeping it out of the repo is tidiness, not
+protection.
+
 ## 1. Set your team and bundle ID
 
 The bundle ID is currently `com.gulsher.curlhit`. Register that ID (or your own) at
@@ -68,11 +86,12 @@ xcodebuild -project CurlHit.xcodeproj -scheme CurlHit \
 
 xcodebuild -exportArchive \
   -archivePath build/CurlHit.xcarchive \
-  -exportOptionsPlist docs/ExportOptions.plist \
+  -exportOptionsPlist docs/ExportOptions.local.plist \
   -exportPath build/export
 ```
 
-Put your team ID in `docs/ExportOptions.plist` first. Then upload:
+Make `docs/ExportOptions.local.plist` from the template first, as described above.
+Then upload:
 
 ```bash
 xcrun altool --upload-app -f build/export/CurlHit.pkg -t macos \
