@@ -1,26 +1,47 @@
-# Curl Hit
+<h1 align="center">Curl Hit</h1>
 
-A small native macOS app that replays a `curl` command as many times as you like, in
-parallel if you want, and shows you what came back.
+<p align="center">
+  Paste a curl. Fire it as many times as you like, in parallel if you want.<br>
+  See every response — and find out where your API starts pushing back.
+</p>
 
-It was built for one question — *where does my API start pushing back?* — so alongside
-plain repeat-and-inspect it can climb through concurrency levels and tell you where the
-429s begin.
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-macOS%2013%2B-111111" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/built%20with-Swift%20%C2%B7%20SwiftUI-F05138" alt="Swift and SwiftUI">
+  <img src="https://img.shields.io/badge/app%20size-2.3%20MB-2EA043" alt="2.3 MB">
+  <img src="https://img.shields.io/badge/dependencies-none-2EA043" alt="No dependencies">
+  <img src="https://img.shields.io/badge/license-MIT-0969DA" alt="MIT license">
+</p>
 
-- **Native and small** — SwiftUI + AppKit only. ~1.9 MB, no bundled frameworks, no Electron, no runtime dependencies.
-- **Local only** — no database, no accounts, no telemetry. The only thing written to disk is your last-used inputs.
-- **Sandboxed** — App Sandbox on, with exactly one entitlement: outgoing network.
-- **Reads real curl** — headers, methods, bodies, auth, cookies, multi-line `\` pastes.
-- **Advanced mode** — takes the request apart and randomises chosen headers, query parameters or body fields on every hit, keeping each value's shape.
+## Demo
 
----
-
-## Video Demonstration:
-
+Pasting a curl, running it, and reading the results — including Advanced mode
+randomising a field on every request.
 
 https://github.com/user-attachments/assets/0f13f83e-0570-40a1-94f7-ff3687e1afbc
 
+## Why you might want it
 
+|  | |
+| --- | --- |
+| **Repeat any request** | Paste a curl straight from your browser's network tab and replay it 5 times or 5,000 |
+| **Hit it in parallel** | Up to 50 requests in flight at once, to see how the endpoint behaves under overlap |
+| **Find the rate limit** | Ramp mode climbs through concurrency levels and tells you, in one line, where the 429s start |
+| **Vary every request** | Advanced mode randomises chosen headers, query parameters or body fields per hit, keeping each value's shape |
+| **See what was sent** | Every hit keeps its own request snapshot, copyable as a runnable curl |
+
+And what it deliberately is not: there is no database, no account, no telemetry, and
+nothing is written to disk except your last-used inputs. It is a single ~2.3 MB native
+app — SwiftUI and AppKit only, no Electron, no bundled frameworks, no runtime
+dependencies — and it runs inside the App Sandbox with exactly one entitlement:
+outgoing network.
+
+## Contents
+
+- [Install](#install) · [Quick start](#quick-start)
+- [Features](#features) — [the request](#request--paste-a-curl-or-just-a-url) · [count and interval](#count-and-interval--how-many-how-fast) · [parallel](#parallel--requests-in-flight-at-once) · [ramp mode](#ramp-mode--find-the-limit-instead-of-guessing-it) · [advanced mode](#advanced-mode--a-different-value-on-every-request) · [the numbers](#the-numbers) · [results and the response viewer](#per-hit-results-and-the-response-viewer) · [CSV export](#copy-csv)
+- [Supported curl flags](#supported-curl-flags) · [How it works](#how-it-works)
+- [Using it responsibly](#using-it-responsibly) · [License](#license)
 
 ## Install
 
