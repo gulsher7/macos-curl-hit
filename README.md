@@ -15,6 +15,13 @@ plain repeat-and-inspect it can climb through concurrency levels and tell you wh
 
 ---
 
+## Video Demonstration:
+
+
+https://github.com/user-attachments/assets/0f13f83e-0570-40a1-94f7-ff3687e1afbc
+
+
+
 ## Install
 
 ```bash
