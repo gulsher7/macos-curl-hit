@@ -13,6 +13,11 @@
   <img src="https://img.shields.io/badge/license-MIT-0969DA" alt="MIT license">
 </p>
 
+<p align="center">
+  <a href="https://gulsher7.github.io/macos-curl-hit/"><b>Website</b></a> ·
+  <a href="https://github.com/gulsher7/macos-curl-hit/releases/latest"><b>Download</b></a>
+</p>
+
 ## Demo
 
 Pasting a curl, running it, and reading the results — including Advanced mode
