@@ -131,7 +131,14 @@ struct FieldSlot: Identifiable, Hashable {
     var strategy: MutationStrategy = .sameShape
 
     func value(forHit hit: Int) -> String {
-        Mutator.apply(strategy, to: original, hit: hit)
+        var generated = Mutator.apply(strategy, to: original, hit: hit)
+        // A JSON number drops a leading zero, so "06426" would be sent as 6426 and
+        // silently lose a digit. Keep the digit count honest.
+        if isNumeric, generated.count > 1, generated.hasPrefix("0"),
+           !original.hasPrefix("0") {
+            generated = String("123456789".randomElement()!) + generated.dropFirst()
+        }
+        return generated
     }
 
     static func == (a: FieldSlot, b: FieldSlot) -> Bool { a.id == b.id }
@@ -292,8 +299,10 @@ struct RequestTemplate {
                     : (generated[slot.id] ?? slot.original)
                 mutated = Self.setJSON(mutated, steps: slot.steps, value: replacement)
             }
+            // sortedKeys because JSONSerialization does not preserve key order, and an
+            // unstable body across hits would break anything that signs or hashes it.
             request.httpBody = try? JSONSerialization.data(withJSONObject: mutated,
-                                                           options: [.fragmentsAllowed])
+                                                           options: [.fragmentsAllowed, .sortedKeys])
         case .form(let pairs):
             let rebuilt = pairs.map { name, value -> String in
                 let slot = enabled.first { $0.source == .form && $0.path == name }

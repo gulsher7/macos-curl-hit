@@ -16,6 +16,13 @@ struct HitResult: Identifiable, Sendable {
     /// What was randomised for this particular request, if anything.
     var mutations: String? = nil
 
+    /// Exactly what went out, captured per hit so a randomised request can be
+    /// inspected after the fact.
+    let sentMethod: String
+    let sentURL: String
+    let sentHeaders: [(String, String)]
+    let sentBody: String?
+
     var ok: Bool { statusCode >= 200 && statusCode < 400 }
     var isRateLimited: Bool { statusCode == 429 }
     var isServerError: Bool { statusCode >= 500 }
@@ -89,6 +96,21 @@ final class HTTPEngine: @unchecked Sendable {
             Double(DispatchTime.now().uptimeNanoseconds - clock.uptimeNanoseconds) / 1_000_000_000
         }
 
+        // Snapshot of what this hit is about to send. URLSession adds a few headers
+        // of its own on the wire (Accept-Encoding, User-Agent); this is what the app set.
+        let sentMethod = request.httpMethod ?? "GET"
+        let sentURL = request.url?.absoluteString ?? ""
+        let sentHeaders = (request.allHTTPHeaderFields ?? [:])
+            .sorted { $0.key.lowercased() < $1.key.lowercased() }
+            .map { ($0.key, $0.value) }
+        var sentBody: String?
+        if let data = request.httpBody, !data.isEmpty {
+            let text = String(data: data, encoding: .utf8) ?? "<\(data.count) bytes of binary data>"
+            sentBody = text.count > maxBodyChars
+                ? String(text.prefix(maxBodyChars)) + "\n\n… truncated (\(data.count) bytes total)"
+                : text
+        }
+
         do {
             let (data, response) = try await session.data(for: request)
             let http = response as? HTTPURLResponse
@@ -108,7 +130,11 @@ final class HTTPEngine: @unchecked Sendable {
                              byteCount: data.count,
                              body: text,
                              responseHeaders: headers,
-                             errorText: nil)
+                             errorText: nil,
+                             sentMethod: sentMethod,
+                             sentURL: sentURL,
+                             sentHeaders: sentHeaders,
+                             sentBody: sentBody)
         } catch {
             return HitResult(index: index,
                              stage: stage,
@@ -118,7 +144,11 @@ final class HTTPEngine: @unchecked Sendable {
                              byteCount: 0,
                              body: "",
                              responseHeaders: [],
-                             errorText: (error as NSError).localizedDescription)
+                             errorText: (error as NSError).localizedDescription,
+                             sentMethod: sentMethod,
+                             sentURL: sentURL,
+                             sentHeaders: sentHeaders,
+                             sentBody: sentBody)
         }
     }
 }

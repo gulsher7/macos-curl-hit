@@ -436,6 +436,20 @@ final class Runner: ObservableObject {
         copy(text, note: "Response of hit #\(hit.index) copied.")
     }
 
+    /// Copies the request that produced the selected hit, as a curl command so it
+    /// can be replayed straight from a terminal.
+    func copySentRequest() {
+        guard let hit = selectedResult else { return }
+        var parts = ["curl -X \(hit.sentMethod) '\(hit.sentURL)'"]
+        for (name, value) in hit.sentHeaders {
+            parts.append("  -H '\(name): \(value.replacingOccurrences(of: "'", with: "'\\''"))'")
+        }
+        if let body = hit.sentBody, !body.isEmpty {
+            parts.append("  --data-raw '\(body.replacingOccurrences(of: "'", with: "'\\''"))'")
+        }
+        copy(parts.joined(separator: " \\\n"), note: "Request of hit #\(hit.index) copied as curl.")
+    }
+
     /// CSV of the run — plain text to the clipboard, nothing written to disk.
     func copyRunAsCSV() {
         guard !results.isEmpty else { return }

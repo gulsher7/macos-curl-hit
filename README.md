@@ -214,9 +214,15 @@ Every request is listed with its number, status code, duration and wall-clock ti
 colour-coded by status class. Waves finish out of order, so results are sorted by hit
 number rather than by arrival — the list stays readable.
 
-Select any hit to see its body in the right-hand pane. **JSON is pretty-printed**
-automatically; anything else is shown untouched. The **Headers** toggle adds the
-response headers above the body, and **Copy** puts the whole thing on the clipboard.
+Select any hit to see it in the right-hand pane, which has a **Response / Request**
+switch:
+
+- **Response** — the body, with **JSON pretty-printed** automatically and anything else shown untouched. The **Headers** toggle adds the response headers above it.
+- **Request** — exactly what that hit sent: method, URL, headers and body. In Advanced mode every hit sends different values, so this is how you see which ones produced a given result.
+
+**Copy** copies whichever side is showing. On the Request side it copies a ready-to-run
+**curl command**, so any single hit — including one with randomised values — can be
+replayed straight from a terminal.
 
 Bodies are truncated in the viewer at 200,000 characters, with a note giving the real
 size.

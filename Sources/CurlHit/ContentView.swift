@@ -4,6 +4,7 @@ struct ContentView: View {
     @StateObject private var runner = Runner()
     @State private var showHeaders = false
     @State private var showStages = true
+    @State private var showRequest = false
 
     private static let clock: DateFormatter = {
         let f = DateFormatter()
@@ -438,23 +439,38 @@ struct ContentView: View {
             .frame(minWidth: 320, idealWidth: 400)
 
             VStack(alignment: .leading, spacing: 0) {
-                sectionHeader("Response") {
-                    HStack(spacing: 10) {
+                sectionHeader(showRequest ? "Request sent" : "Response") {
+                    HStack(spacing: 9) {
                         if let hit = runner.selectedResult {
-                            Text("#\(hit.index) · \(hit.byteCount) bytes")
+                            Text(showRequest ? "#\(hit.index)" : "#\(hit.index) · \(hit.byteCount) bytes")
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundStyle(.secondary)
-                            Toggle("Headers", isOn: $showHeaders)
-                                .toggleStyle(.checkbox)
-                                .font(.system(size: 11))
-                            Button("Copy") { runner.copyResponse() }
-                                .buttonStyle(.link)
-                                .font(.system(size: 11))
+
+                            Picker("", selection: $showRequest) {
+                                Text("Response").tag(false)
+                                Text("Request").tag(true)
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 142)
+                            .controlSize(.small)
+                            .help("Switch between what came back and what was sent")
+
+                            if !showRequest {
+                                Toggle("Headers", isOn: $showHeaders)
+                                    .toggleStyle(.checkbox)
+                                    .font(.system(size: 11))
+                            }
+                            Button("Copy") {
+                                showRequest ? runner.copySentRequest() : runner.copyResponse()
+                            }
+                            .buttonStyle(.link)
+                            .font(.system(size: 11))
                         }
                     }
                 }
                 ScrollView {
-                    Text(responseText)
+                    Text(showRequest ? requestText : responseText)
                         .font(.system(size: 11, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -566,6 +582,25 @@ struct ContentView: View {
             Text(subtitle).font(.system(size: 10)).foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// What actually went out for the selected hit — the point being that in
+    /// Advanced mode every hit sends something different.
+    private var requestText: String {
+        guard let hit = runner.selectedResult else {
+            return "Select a hit to see the request it sent."
+        }
+        var out = "\(hit.sentMethod) \(hit.sentURL)"
+        if !hit.sentHeaders.isEmpty {
+            out += "\n\n" + hit.sentHeaders.map { "\($0.0): \($0.1)" }.joined(separator: "\n")
+        }
+        if let body = hit.sentBody, !body.isEmpty {
+            out += "\n\n" + prettyJSON(body)
+        }
+        if let mutations = hit.mutations {
+            out += "\n\nrandomised → \(mutations)"
+        }
+        return out
     }
 
     private var responseText: String {
