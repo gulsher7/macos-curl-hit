@@ -112,6 +112,19 @@ than between individual requests.
 Per-request timeout in seconds. If the pasted curl carries its own `-m` / `--max-time`,
 that wins — the field is a default, not an override.
 
+### Warmup — keep the first request from skewing everything
+
+The first request of any run pays for DNS, the TLS handshake and a cold connection
+pool. It is routinely several times slower than the rest, and on a short run that one
+outlier drags the average up and owns the Max column outright.
+
+Set **Warmup** to a few requests and they are sent first and then thrown away — not
+counted, not listed, not included in the wall clock the throughput is derived from.
+What you measure afterwards is a warm connection, which is what a real client would
+have.
+
+Leave it at `0` if you specifically want to measure cold-start cost.
+
 ### Stop on failure
 
 Halts the whole run the moment anything comes back outside 2xx/3xx. Useful when you are

@@ -147,6 +147,7 @@ struct ContentView: View {
                 }
 
                 numberField("Timeout (s)", text: $runner.timeoutText)
+                numberField("Warmup", text: $runner.warmupText)
 
                 Toggle("Stop on failure", isOn: $runner.stopOnFailure)
                     .toggleStyle(.checkbox)

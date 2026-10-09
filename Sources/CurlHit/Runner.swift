@@ -13,6 +13,8 @@ final class Runner: ObservableObject {
     @Published var unitIsSeconds: Bool { didSet { save("unitIsSeconds", unitIsSeconds) } }
     @Published var timeoutText: String { didSet { save("timeoutText", timeoutText) } }
     @Published var stopOnFailure: Bool { didSet { save("stopOnFailure", stopOnFailure) } }
+    /// Requests sent before measurement starts, and left out of every statistic.
+    @Published var warmupText: String { didSet { save("warmupText", warmupText) } }
 
     /// Ramp mode steps through parallelism levels to find where the server bends.
     @Published var isRamp: Bool { didSet { save("isRamp", isRamp) } }
@@ -37,7 +39,7 @@ final class Runner: ObservableObject {
     @Published var statusIsError = false
 
     private var task: Task<Void, Never>?
-    private var runStart: Date?
+    fileprivate var runStart: Date?
     @Published private(set) var stageWall: [Int: Double] = [:]
     private let defaults = UserDefaults.standard
 
@@ -52,6 +54,7 @@ final class Runner: ObservableObject {
         timeoutText = d.string(forKey: "timeoutText") ?? "30"
         unitIsSeconds = d.bool(forKey: "unitIsSeconds")
         stopOnFailure = d.bool(forKey: "stopOnFailure")
+        warmupText = d.string(forKey: "warmupText") ?? "0"
         isRamp = d.bool(forKey: "isRamp")
         rampStepsText = d.string(forKey: "rampStepsText") ?? "1, 2, 5, 10, 20"
         rampPerStepText = d.string(forKey: "rampPerStepText") ?? "20"
@@ -206,6 +209,13 @@ final class Runner: ObservableObject {
         max(1, min(10_000, Int(rampPerStepText.trimmingCharacters(in: .whitespaces)) ?? 20))
     }
 
+    /// The first request of any run pays DNS, the TLS handshake and a cold
+    /// connection pool, and on a short run that one outlier drags the average and
+    /// owns the maximum. Warmup requests are sent and thrown away.
+    var warmupCount: Int {
+        max(0, min(1_000, Int(warmupText.trimmingCharacters(in: .whitespaces)) ?? 0))
+    }
+
     private var intervalSeconds: Double {
         let raw = Double(intervalText.trimmingCharacters(in: .whitespaces)) ?? 0
         return max(0, unitIsSeconds ? raw : raw / 1000)
@@ -323,8 +333,29 @@ final class Runner: ObservableObject {
 
         // Each stage sends its requests in waves of `parallel`, then the interval
         // applies before the next wave and before the next stage.
+        let warmup = warmupCount
+
         task = Task { [weak self] in
             defer { engine.invalidate() }
+
+            if warmup > 0 {
+                self?.status = "Warming up — \(warmup) request\(warmup == 1 ? "" : "s"), not counted…"
+                for _ in 1...warmup {
+                    if Task.isCancelled { break }
+                    let warmRequest = liveTemplate
+                        .map { $0.request(forHit: 0, slots: liveSlots, defaultTimeout: timeout).0 }
+                        ?? request
+                    _ = await engine.send(warmRequest, index: 0, stage: 0)
+                }
+                // Measurement starts now, so the warmup is outside the wall clock too.
+                self?.runStart = Date()
+                if let self, !Task.isCancelled {
+                    self.status = parsed.warnings.isEmpty
+                        ? "\(parsed.method) \(parsed.url.absoluteString)\(shape)\(randomised)"
+                        : self.status
+                }
+            }
+
             var hitNumber = 1
             var halted = false
 
