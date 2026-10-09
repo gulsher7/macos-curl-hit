@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS%2013%2B-111111" alt="macOS 13+">
   <img src="https://img.shields.io/badge/built%20with-Swift%20%C2%B7%20SwiftUI-F05138" alt="Swift and SwiftUI">
-  <img src="https://img.shields.io/badge/app%20size-2.3%20MB-2EA043" alt="2.3 MB">
+  <img src="https://img.shields.io/badge/download-1.8%20MB-2EA043" alt="1.8 MB download">
   <img src="https://img.shields.io/badge/dependencies-none-2EA043" alt="No dependencies">
   <img src="https://img.shields.io/badge/license-MIT-0969DA" alt="MIT license">
 </p>
@@ -36,9 +36,9 @@ https://github.com/user-attachments/assets/0f13f83e-0570-40a1-94f7-ff3687e1afbc
 | **See what was sent** | Every hit keeps its own request snapshot, copyable as a runnable curl |
 
 And what it deliberately is not: there is no database, no account, no telemetry, and
-nothing is written to disk except your last-used inputs. It is a single ~2.3 MB native
-app — SwiftUI and AppKit only, no Electron, no bundled frameworks, no runtime
-dependencies — and it runs inside the App Sandbox with exactly one entitlement:
+nothing is written to disk except your last-used inputs. It is a single native app —
+1.8 MB to download, 3.6 MB installed as a universal binary carrying both architectures —
+SwiftUI and AppKit only, no Electron, no bundled frameworks, no runtime dependencies — and it runs inside the App Sandbox with exactly one entitlement:
 outgoing network.
 
 ## Contents
@@ -50,7 +50,7 @@ outgoing network.
 
 ## Install
 
-**[Download CurlHit 1.0](https://github.com/gulsher7/macos-curl-hit/releases/latest)** — universal (Apple silicon + Intel), 1.7 MB.
+**[Download CurlHit 1.0](https://github.com/gulsher7/macos-curl-hit/releases/latest)** — universal (Apple silicon + Intel), 1.8 MB download, 3.6 MB installed.
 
 Signed with a Developer ID and notarised by Apple, so it opens on a normal double-click.
 Or build it from source, which needs only the Swift compiler:
