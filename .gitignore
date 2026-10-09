@@ -1,0 +1,17 @@
+# Build output
+build/
+DerivedData/
+*.xcarchive
+*.dSYM
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.moved-aside
+
+# macOS
+.DS_Store
+
+# Local logs / scratch
+*.log

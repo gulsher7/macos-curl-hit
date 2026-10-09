@@ -1,0 +1,116 @@
+# Curl Hit
+
+A tiny native macOS app that replays a `curl` command N times at a fixed interval and shows you every response.
+
+Paste a curl (or just a URL), set **count** and **interval**, press Start. That's it.
+
+- **Native and small** — SwiftUI + AppKit only. ~1.7 MB app, no frameworks bundled, no Electron, no runtime deps.
+- **Local only** — no database, no accounts, no telemetry, nothing written to disk except your last-used inputs in `UserDefaults`.
+- **Sandboxed** — ships with the App Sandbox on and exactly one entitlement: outgoing network.
+- **Real curl parsing** — headers, methods, bodies, basic auth, cookies, multi-line `\` pastes.
+
+## Install
+
+```bash
+git clone https://github.com/<you>/curl-hit.git
+cd curl-hit
+./build.sh
+open build/CurlHit.app
+```
+
+`build.sh` needs only the Swift compiler that ships with Xcode or the Command Line Tools — no Xcode project, no SPM fetch. To keep the app around:
+
+```bash
+cp -R build/CurlHit.app /Applications/
+```
+
+## Using it
+
+| Field | Meaning |
+| --- | --- |
+| Request | A full curl command, or a bare URL (`https://` is assumed if you omit the scheme) |
+| Count | How many times to send it, 1–100000 |
+| Interval | Delay *between* hits, in ms or seconds. `0` fires back-to-back |
+| Timeout (s) | Per-request timeout; `-m` in the pasted curl wins over this |
+| Stop on failure | Halt the run on the first non-2xx/3xx response |
+
+Shortcuts: `⌘↩` start, `⌘.` stop.
+
+The app opens on a harmless example — 5 requests, a second apart, against
+[The Simpsons API](https://thesimpsonsapi.com), a public endpoint that needs no key:
+
+```
+https://thesimpsonsapi.com/api/characters
+```
+
+Replace it with your own curl. A full one works as-is:
+
+```bash
+curl -X POST 'https://example.com/api/login' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <token>' \
+  --data-raw '{"email":"you@example.com","password":"secret"}'
+```
+
+Each hit is listed with its status code, duration and wall-clock time. Select one to read its body (JSON is pretty-printed) and response headers. **Copy CSV** puts the whole run on the clipboard as `hit,status,ms,bytes,started_at,error`.
+
+Requests run **sequentially**, one in flight at a time — this is a repeat-and-observe tool, not a load generator.
+
+## Supported curl flags
+
+Parsed and honoured:
+
+`-X/--request` · `-H/--header` · `-d/--data/--data-raw/--data-ascii/--data-binary` · `--data-urlencode` · `--json` · `-F/--form/--form-string` · `-u/--user` · `-b/--cookie` · `-A/--user-agent` · `-e/--referer` · `-G/--get` · `-I/--head` · `-L/--location` · `-k/--insecure` · `-m/--max-time` · `--connect-timeout` · `--url`
+
+Accepted and ignored, because they only describe curl's own output: `-s`, `-v`, `-i`, `-o`, `-w`, `--compressed`, `--retry`, `--progress-bar` and friends. Clustered (`-sk`) and glued (`-XPOST`) short flags work. Anything unrecognised is skipped and reported in the status bar rather than failing the run.
+
+Behaviour matches curl where the two differ from `URLSession` defaults: redirects are **not** followed unless you pass `-L`, and a bad TLS certificate fails unless you pass `-k`.
+
+Two limits worth knowing:
+
+- `-F name=@file` can't read arbitrary paths from inside the sandbox, so file uploads are reported as a warning instead of silently sending nothing.
+- Response bodies are truncated in the viewer at 200,000 characters.
+
+## How it works
+
+```
+Sources/CurlHit/
+  CurlHitApp.swift    App entry point
+  ContentView.swift   The whole UI
+  Runner.swift        Run loop, counters, clipboard export
+  HTTPEngine.swift    URLSession wrapper (curl-compatible redirect/TLS behaviour)
+  CurlParser.swift    Shell tokeniser + curl flags → URLRequest
+Tools/make-icon.swift Draws the app icon; no binary artwork in the repo
+```
+
+The engine is pure `URLSession` and deliberately **does not** shell out to `/usr/bin/curl`: a sandboxed app can't spawn binaries outside its bundle, so a subprocess design could never ship on the App Store.
+
+## Building with Xcode
+
+```bash
+open CurlHit.xcodeproj
+```
+
+The project builds the same sources into `CurlHit.app`, with the icon compiled from `Resources/Assets.xcassets`. See [`docs/APP_STORE.md`](docs/APP_STORE.md) for the signing and submission steps.
+
+## Requirements
+
+macOS 13 Ventura or later. Apple silicon or Intel (`build.sh` targets your own architecture; the Xcode project builds universal).
+
+## Using it responsibly
+
+This app sends real requests to real servers, so the usual rules apply: point it at
+endpoints you own or are authorised to test, and respect the target's terms of service
+and rate limits. Defaults are intentionally conservative, and requests are sequential
+by design — one in flight at a time, never a burst.
+
+The bundled example uses [The Simpsons API](https://thesimpsonsapi.com) (credited on its
+site to FacuG03), which is open and unauthenticated and publishes no rate limit; its
+responses are served from a CDN. Its data comes from
+[The Simpsons Wiki](https://simpsons.fandom.com) under
+[CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/). It's referenced here only
+as a default URL — no Simpsons data is redistributed in this repo.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

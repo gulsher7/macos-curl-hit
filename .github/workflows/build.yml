@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  swiftc:
+    name: swiftc build (build.sh)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build CurlHit.app
+        run: ./build.sh
+      - name: Check the bundle is well formed
+        run: |
+          test -x "build/CurlHit.app/Contents/MacOS/CurlHit"
+          test -f "build/CurlHit.app/Contents/Resources/AppIcon.icns"
+          codesign --verify --verbose build/CurlHit.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CurlHit-app
+          path: build/CurlHit.app
+
+  xcode:
+    name: xcodebuild (App Store config)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Release, unsigned
+        run: |
+          xcodebuild -project CurlHit.xcodeproj -scheme CurlHit \
+            -configuration Release -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO build
