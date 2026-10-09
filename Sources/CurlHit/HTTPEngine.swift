@@ -54,7 +54,7 @@ final class HTTPEngine: @unchecked Sendable {
     private let delegate: EngineDelegate
     private let maxBodyChars = 200_000
 
-    init(request: ParsedRequest, timeout: Double) {
+    init(request: ParsedRequest, timeout: Double, maxConnections: Int = 1) {
         let config = URLSessionConfiguration.ephemeral   // nothing cached, nothing persisted
         config.timeoutIntervalForRequest = request.timeout ?? timeout
         config.timeoutIntervalForResource = (request.timeout ?? timeout) + 5
@@ -62,6 +62,10 @@ final class HTTPEngine: @unchecked Sendable {
         config.httpShouldSetCookies = false
         config.urlCache = nil
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
+
+        // Without this, URLSession quietly caps concurrent connections to one host
+        // at 6, and a parallel run above that would queue instead of overlapping.
+        config.httpMaximumConnectionsPerHost = max(1, maxConnections)
 
         self.delegate = EngineDelegate(followRedirects: request.followRedirects,
                                        insecure: request.insecure)

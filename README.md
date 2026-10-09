@@ -30,11 +30,30 @@ cp -R build/CurlHit.app /Applications/
 | --- | --- |
 | Request | A full curl command, or a bare URL (`https://` is assumed if you omit the scheme) |
 | Count | How many times to send it, 1–100000 |
+| Parallel | How many go out **at once**, 1–50. `1` is the old one-at-a-time behaviour |
 | Interval | Delay *between* hits, in ms or seconds. `0` fires back-to-back |
 | Timeout (s) | Per-request timeout; `-m` in the pasted curl wins over this |
 | Stop on failure | Halt the run on the first non-2xx/3xx response |
 
 Shortcuts: `⌘↩` start, `⌘.` stop.
+
+### Load and rate-limit testing
+
+Set **Parallel** above 1 and requests go out in waves: `Parallel` of them fire together,
+the wave is awaited, then **Interval** applies before the next wave. So `Count 100`,
+`Parallel 10`, `Interval 0` is ten waves of ten, back to back.
+
+The readout is built for exactly this:
+
+- **Req/s** — completed requests per second of wall clock, the number that should climb as you raise Parallel
+- **p95** — 95th-percentile latency, which exposes throttling and queuing long before the average does
+- **Status breakdown** — a chip per status code (`200 x85  429 x15`), with **429 shown in purple** since that is the one you are usually hunting
+- **Rate-limit headers** — if the server sends `Retry-After`, `X-RateLimit-*` or RFC-style `RateLimit-*`, the latest values appear under the progress bar
+
+A note on what the numbers mean: this measures your endpoint from one machine over one
+network. It is a rate-limit prober and a smoke test, not a distributed load generator —
+past a few dozen parallel requests you are usually measuring your own uplink rather than
+the server.
 
 The app opens on a harmless example — 5 requests, a second apart, against
 [The Simpsons API](https://thesimpsonsapi.com), a public endpoint that needs no key:
@@ -54,7 +73,7 @@ curl -X POST 'https://example.com/api/login' \
 
 Each hit is listed with its status code, duration and wall-clock time. Select one to read its body (JSON is pretty-printed) and response headers. **Copy CSV** puts the whole run on the clipboard as `hit,status,ms,bytes,started_at,error`.
 
-Requests run **sequentially**, one in flight at a time — this is a repeat-and-observe tool, not a load generator.
+By default requests run one at a time; raise **Parallel** to overlap them.
 
 ## Supported curl flags
 
@@ -101,8 +120,9 @@ macOS 13 Ventura or later. Apple silicon or Intel (`build.sh` targets your own a
 
 This app sends real requests to real servers, so the usual rules apply: point it at
 endpoints you own or are authorised to test, and respect the target's terms of service
-and rate limits. Defaults are intentionally conservative, and requests are sequential
-by design — one in flight at a time, never a burst.
+and rate limits. Defaults are intentionally conservative — one request at a time — and
+parallelism is capped at 50, deliberately: this is a tool for probing your own API's
+limits, not for generating traffic against someone else's.
 
 The bundled example uses [The Simpsons API](https://thesimpsonsapi.com) (credited on its
 site to FacuG03), which is open and unauthenticated and publishes no rate limit; its

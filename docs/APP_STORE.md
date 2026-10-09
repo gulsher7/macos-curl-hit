@@ -92,7 +92,7 @@ For each new submission, raise both values in `CurlHit.xcodeproj` (and keep `Inf
 
 A request-replaying tool is ordinary developer tooling and sits squarely in the Developer Tools category. Two things keep it uncontroversial, and both are worth preserving if you extend the app:
 
-- It sends requests **sequentially**, one at a time. Don't add unbounded concurrency — a tool whose purpose reads as flooding third-party servers is a different review conversation.
+- Parallelism is **bounded at 50** and defaults to 1. Keep a hard cap if you raise it: a tool that can generate unbounded traffic against arbitrary third-party servers is a different review conversation than a developer utility for testing your own API.
 - It has no bundled binaries and no subprocess execution, which is what makes the single network entitlement sufficient.
 
 ## Distributing outside the App Store too

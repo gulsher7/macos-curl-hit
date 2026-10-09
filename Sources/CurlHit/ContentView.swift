@@ -79,6 +79,7 @@ struct ContentView: View {
 
             HStack(alignment: .bottom, spacing: 12) {
                 numberField("Count", text: $runner.countText)
+                numberField("Parallel", text: $runner.parallelText)
 
                 VStack(alignment: .leading, spacing: 3) {
                     fieldLabel("Interval")
@@ -130,9 +131,9 @@ struct ContentView: View {
                 stat("OK", "\(runner.successCount)", tint: .green)
                 stat("Failed", "\(runner.failCount)", tint: runner.failCount > 0 ? .red : .secondary)
                 stat("Avg", ms(runner.avgMs))
-                stat("Min", ms(runner.minMs))
+                stat("p95", ms(runner.p95Ms))
                 stat("Max", ms(runner.maxMs))
-                stat("Last", ms(runner.lastMs))
+                stat("Req/s", runner.throughput == 0 ? "—" : String(format: "%.1f", runner.throughput))
                 Spacer()
                 Button {
                     runner.copyRunAsCSV()
@@ -147,6 +148,38 @@ struct ContentView: View {
             if runner.plannedTotal > 0 {
                 ProgressView(value: Double(runner.completed), total: Double(runner.plannedTotal))
                     .progressViewStyle(.linear)
+            }
+
+            if !runner.statusBreakdown.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(runner.statusBreakdown, id: \.code) { entry in
+                        HStack(spacing: 3) {
+                            Text(entry.label)
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            Text("x\(entry.count)")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(codeColor(entry.code).opacity(0.16), in: Capsule())
+                        .overlay(Capsule().stroke(codeColor(entry.code).opacity(0.45)))
+                    }
+                    Spacer()
+                }
+            }
+
+            if let limits = runner.rateLimitInfo {
+                HStack(spacing: 5) {
+                    Image(systemName: "gauge.with.dots.needle.33percent")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
+                    Text(limits)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                }
             }
         }
         .padding(14)
@@ -262,11 +295,14 @@ struct ContentView: View {
         .padding(.vertical, 1)
     }
 
-    private func color(for hit: HitResult) -> Color {
-        switch hit.statusCode {
-        case 0:        return .red
+    private func color(for hit: HitResult) -> Color { codeColor(hit.statusCode) }
+
+    private func codeColor(_ code: Int) -> Color {
+        switch code {
+        case 0:         return .red
         case 200..<300: return .green
         case 300..<400: return .teal
+        case 429:       return .purple   // the one everyone is actually looking for
         case 400..<500: return .orange
         default:        return .red
         }
