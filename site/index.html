@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curl Hit — replay a curl, in parallel, and find your API's rate limit</title>
+<meta name="description" content="A small native macOS app that replays a curl command as many times as you like, in parallel if you want, and tells you where your API starts pushing back.">
+<link rel="icon" href="favicon.png" type="image/png">
+
+<meta property="og:title" content="Curl Hit — a native macOS curl replayer">
+<meta property="og:description" content="Replay a curl, hit it in parallel, and find where your API rate-limits. Free, open source, 1.7 MB.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://gulsher7.github.io/macos-curl-hit/demo-poster.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f6f7f9;
+    --bg-code: #0e1116;
+    --fg: #15181d;
+    --fg-soft: #5b6370;
+    --fg-faint: #878e9a;
+    --line: #e3e6ea;
+    --brand: #2e78fa;
+    --brand-2: #5c38dc;
+    --green: #2ea043;
+    --purple: #a371f7;
+    --orange: #e3933c;
+    --radius: 14px;
+    --maxw: 940px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0c0e12;
+      --bg-soft: #14171d;
+      --bg-code: #080a0e;
+      --fg: #e9edf3;
+      --fg-soft: #a2abb8;
+      --fg-faint: #6e7681;
+      --line: #22262e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0c0e12;
+    --bg-soft: #14171d;
+    --bg-code: #080a0e;
+    --fg: #e9edf3;
+    --fg-soft: #a2abb8;
+    --fg-faint: #6e7681;
+    --line: #22262e;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 16px; }
+  a { color: var(--brand); }
+  code, pre, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+
+  /* ---------- hero ---------- */
+  header { text-align: center; padding: 72px 0 40px; }
+  .appicon {
+    width: 104px; height: 104px; border-radius: 23%;
+    box-shadow: 0 14px 34px -10px rgba(46,120,250,.5);
+    image-rendering: -webkit-optimize-contrast;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 6vw, 3.1rem);
+    letter-spacing: -.028em; margin: 20px 0 8px; line-height: 1.1;
+  }
+  .tagline {
+    font-size: clamp(1.02rem, 2.6vw, 1.22rem);
+    color: var(--fg-soft); margin: 0 auto 10px; max-width: 30em;
+  }
+  .tagline strong { color: var(--fg); font-weight: 600; }
+
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 28px 0 14px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 13px 24px; border-radius: 11px; font-weight: 600; font-size: 1rem;
+    text-decoration: none; border: 1px solid transparent; transition: transform .12s ease, filter .12s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    color: #fff; box-shadow: 0 8px 22px -8px rgba(46,120,250,.65);
+  }
+  .btn-primary:hover { filter: brightness(1.07); }
+  .btn-ghost { border-color: var(--line); color: var(--fg); background: var(--bg-soft); }
+  .btn-ghost:hover { border-color: var(--fg-faint); }
+
+  .meta { color: var(--fg-faint); font-size: .83rem; margin-top: 4px; }
+  .meta span { white-space: nowrap; }
+  .dot { opacity: .45; margin: 0 7px; }
+
+  /* ---------- video ---------- */
+  .demo { margin: 14px auto 8px; }
+  .frame {
+    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+    background: var(--bg-soft); box-shadow: 0 24px 60px -28px rgba(0,0,0,.5);
+    line-height: 0;
+  }
+  .frame video { width: 100%; height: auto; display: block; }
+  .caption { text-align: center; color: var(--fg-faint); font-size: .83rem; margin-top: 11px; }
+
+  /* ---------- sections ---------- */
+  section { padding: 54px 0; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: 0; }
+  h2 { font-size: 1.5rem; letter-spacing: -.02em; margin: 0 0 6px; }
+  .sub { color: var(--fg-soft); margin: 0 0 26px; max-width: 42em; }
+
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
+  .card {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 19px 20px; background: var(--bg-soft);
+  }
+  .card h3 { margin: 0 0 6px; font-size: 1rem; letter-spacing: -.01em; }
+  .card p { margin: 0; color: var(--fg-soft); font-size: .92rem; }
+  .card .ic { font-size: 1.15rem; line-height: 1; margin-bottom: 9px; display: block; }
+
+  pre {
+    background: var(--bg-code); color: #d7dde6; border: 1px solid var(--line);
+    border-radius: 11px; padding: 17px 19px; overflow-x: auto;
+    font-size: .845rem; line-height: 1.62; margin: 0;
+  }
+  pre .c { color: #6e7681; }
+  pre .g { color: #56d364; }
+  pre .p { color: #c297ff; }
+  pre .o { color: #e3b341; }
+  pre .b { color: #6cb6ff; }
+  pre .w { color: #f0f3f6; font-weight: 600; }
+
+  .two { display: grid; gap: 18px; grid-template-columns: 1fr; }
+  @media (min-width: 760px) { .two { grid-template-columns: 1fr 1fr; } }
+
+  ul.plain { padding-left: 1.1em; margin: 0; color: var(--fg-soft); }
+  ul.plain li { margin: 7px 0; }
+  ul.plain b { color: var(--fg); font-weight: 600; }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 34px 0 60px;
+    color: var(--fg-faint); font-size: .87rem; text-align: center;
+  }
+  footer a { color: var(--fg-soft); }
+  .pill {
+    display: inline-block; font-size: .72rem; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--green);
+    border: 1px solid currentColor; border-radius: 99px; padding: 2px 9px; opacity: .85;
+  }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <img class="appicon" src="icon.png" alt="Curl Hit app icon" width="104" height="104">
+  <h1>Curl Hit</h1>
+  <p class="tagline">
+    Paste a curl. Fire it as many times as you like, in parallel if you want.<br>
+    See every response — and find <strong>where your API starts pushing back</strong>.
+  </p>
+
+  <div class="cta">
+    <a class="btn btn-primary" href="https://github.com/gulsher7/macos-curl-hit/releases/latest">
+      Download for macOS
+    </a>
+    <a class="btn btn-ghost" href="https://github.com/gulsher7/macos-curl-hit">
+      View source
+    </a>
+  </div>
+
+  <p class="meta">
+    <span>Free &amp; open source</span><span class="dot">·</span>
+    <span>Universal — Apple silicon &amp; Intel</span><span class="dot">·</span>
+    <span>macOS 13+</span><span class="dot">·</span>
+    <span>1.7 MB</span>
+  </p>
+  <p class="meta" style="margin-top:9px"><span class="pill">Signed &amp; notarised by Apple</span></p>
+</header>
+
+<div class="wrap demo">
+  <div class="frame">
+    <video src="demo.mp4" poster="demo-poster.jpg" controls muted playsinline preload="metadata"
+           aria-label="Screen recording of Curl Hit running a request and showing results"></video>
+  </div>
+  <p class="caption">Pasting a curl, running it, and reading the results.</p>
+</div>
+
+<main class="wrap">
+
+  <section>
+    <h2>What it does</h2>
+    <p class="sub">Built for one question that a browser's network tab can't answer: what happens when you send this request a thousand times instead of once?</p>
+    <div class="grid">
+      <div class="card">
+        <span class="ic">🔁</span>
+        <h3>Replay any curl</h3>
+        <p>Paste one straight from your browser's network tab. Headers, bodies, auth, cookies and multi-line pastes all work as-is.</p>
+      </div>
+      <div class="card">
+        <span class="ic">⚡</span>
+        <h3>Hit it in parallel</h3>
+        <p>Up to 50 requests in flight at once, to see how the endpoint behaves when they overlap rather than queue.</p>
+      </div>
+      <div class="card">
+        <span class="ic">📈</span>
+        <h3>Find the rate limit</h3>
+        <p>Ramp mode climbs through concurrency levels and tells you, in one line, exactly where the 429s begin.</p>
+      </div>
+      <div class="card">
+        <span class="ic">🎲</span>
+        <h3>Vary every request</h3>
+        <p>Randomise chosen headers, query parameters or body fields per hit — keeping each value's shape so validation still passes.</p>
+      </div>
+      <div class="card">
+        <span class="ic">🔍</span>
+        <h3>See what was sent</h3>
+        <p>Every hit keeps its own request snapshot, copyable as a runnable curl. Trace any failure back to what caused it.</p>
+      </div>
+      <div class="card">
+        <span class="ic">🔒</span>
+        <h3>Stays on your Mac</h3>
+        <p>No database, no account, no telemetry. Sandboxed, with exactly one entitlement: outgoing network.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ramp mode</h2>
+    <p class="sub">Guessing a concurrency number and re-running by hand is slow. Ramp climbs a ladder and reads the result for you.</p>
+    <div class="two">
+      <pre><span class="c">stage  sent   ok   429   p95      req/s</span>
+<span class="w">x1</span>     16     16   0     166ms    6.4
+<span class="w">x4</span>     16     16   0     158ms    25.4
+<span class="w">x8</span>     16     16   0     160ms    50.1
+<span class="w">x16</span>    16     <span class="o">8</span>    <span class="p">8</span>     165ms    96.9
+
+<span class="g">Rate limited at 16 parallel — 8/16 got 429.</span></pre>
+      <div>
+        <p class="sub" style="margin-bottom:14px">It separates four cases that look alike in a results list but need completely different fixes:</p>
+        <ul class="plain">
+          <li><b>429s appear</b> — a configured quota, named at the level it starts.</li>
+          <li><b>5xx or dropped connections</b> — the server is breaking, not throttling.</li>
+          <li><b>No errors but p95 bends</b> — queuing. A capacity finding, not a limit.</li>
+          <li><b>Nothing bends</b> — no limit up to the top rung, with peak throughput.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Advanced mode</h2>
+    <p class="sub">Replaying one identical request only exercises the paths that accept duplicates. Advanced mode takes the request apart — every header, query parameter and body field, including nested JSON — and gives each one a fresh value per request.</p>
+    <pre><span class="c"> ☑  header   X-Device-Id    7F3A1B20-44C1-4E8A-…   Same shape ▾   </span><span class="g">5P2X6D66-88J6-3R5V-…</span>
+<span class="c"> ☐  header   Content-Type   application/json</span>
+<span class="c"> ☑  query    trace          abc123def456           Same shape ▾   </span><span class="g">76b34b9c5c6f</span>
+<span class="c"> ☑  body     user.id        48217                  Digits     ▾   </span><span class="g">35286</span>
+<span class="c"> ☑  body     user.email     someone@example.com    Same shape ▾   </span><span class="g">kzjtqfr@qykirmn.lcv</span>
+<span class="c"> ☑  body     token          ca8b7d1d1ae846cbbf…    Hex        ▾   </span><span class="g">f6bb494ef9cef0f0…</span></pre>
+    <p class="sub" style="margin-top:18px">Values keep their <b style="color:var(--fg)">shape</b>, not just their length. If a server validates “32 hex characters” or “numeric id”, random mixed characters get rejected by the validator and you end up testing the validator instead of the endpoint. Digits stay digits, separators stay put, hex stays hex, and a JSON number is still sent as a number.</p>
+  </section>
+
+  <section>
+    <h2>Install</h2>
+    <div class="two">
+      <div>
+        <h3 style="margin:0 0 8px;font-size:1rem">Download</h3>
+        <p class="sub" style="margin-bottom:14px">Signed with a Developer ID and notarised by Apple, so it opens on a normal double-click — no right-click, no warning.</p>
+        <a class="btn btn-primary" href="https://github.com/gulsher7/macos-curl-hit/releases/latest">Download CurlHit 1.0</a>
+      </div>
+      <div>
+        <h3 style="margin:0 0 8px;font-size:1rem">Or build from source</h3>
+        <p class="sub" style="margin-bottom:14px">Needs only the Swift compiler from Xcode or the Command Line Tools. No project file, no package fetch.</p>
+        <pre>git clone https://github.com/gulsher7/macos-curl-hit.git
+cd macos-curl-hit
+./build.sh &amp;&amp; open build/CurlHit.app</pre>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <p>
+    MIT licensed · <a href="https://github.com/gulsher7/macos-curl-hit">Source on GitHub</a> ·
+    <a href="https://github.com/gulsher7/macos-curl-hit/issues">Report an issue</a>
+  </p>
+  <p style="margin-top:6px">
+    Point it at endpoints you own or are authorised to test.
+  </p>
+</footer>
+
+</body>
+</html>

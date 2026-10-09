@@ -19,3 +19,6 @@ xcuserdata/
 # Local signing identity — never commit
 Local.xcconfig
 *.local.plist
+
+# Raw screen capture; the web-optimised copy lives in site/
+curl-hit-fast.mp4
